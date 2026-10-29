@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>ARCHIVE SKELETON</title>
+<!--
+  档案体动效骨架 · 可运行
+  用法：复制本文件 → 改 ACTS / KITNAMES / CAPS / WEIGHTS → 补 K.xxx 镜头 → 得到可播放原型
+  铁律：所有动效写在 render(t) 里，禁用 CSS transition/animation
+-->
+<style>
+:root{
+  --ink:#08090A; --paper:#EDE7DA; --cold:#98A09C; --red:#DE3B27;
+  --serif:"Noto Serif SC","Source Han Serif SC","SimSun",serif;
+  --mono:"Cascadia Mono","Consolas",monospace;
+  --sans:"Noto Sans SC","Microsoft YaHei",sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:#050505;overflow:hidden;height:100%}
+#wrap{position:fixed;inset:0;display:grid;place-items:center}
+#stage{width:1080px;height:1920px;position:relative;overflow:hidden;background:var(--ink);
+  color:var(--paper);font-family:var(--sans);transform-origin:center center;-webkit-font-smoothing:antialiased}
+#scenes{position:absolute;inset:0}
+.shot{position:absolute;inset:0;opacity:0;visibility:hidden}
+.shot.on{opacity:1;visibility:visible}
+.stage{position:absolute;left:84px;top:280px;width:912px;height:700px}
+.cap{position:absolute;left:84px;top:1000px;width:912px;display:flex;
+  font-family:var(--mono);font-size:14px;letter-spacing:.22em;color:#4A504C;opacity:0}
+.cap b{font-weight:400;color:#7C837E}
+.cap i{font-style:normal;margin-left:auto;color:#5C625E}
+#grain{position:absolute;inset:0;pointer-events:none;opacity:.075;mix-blend-mode:overlay;width:1080px;height:1920px}
+#vig{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(130% 84% at 50% 38%,transparent 46%,rgba(0,0,0,.48) 100%)}
+#scan{position:absolute;inset:0;pointer-events:none;opacity:.028;
+  background:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 3px)}
+#flash{position:absolute;inset:0;pointer-events:none;background:#DDE3DF;opacity:0}
+.ch-l{position:absolute;left:84px;top:82px;font-family:var(--mono);font-size:21px;letter-spacing:.28em;color:var(--cold)}
+.ch-r{position:absolute;right:84px;top:82px;font-family:var(--mono);font-size:21px;letter-spacing:.14em;
+  color:var(--cold);font-variant-numeric:tabular-nums}
+.ch-rule{position:absolute;left:84px;right:84px;top:126px;height:1px;background:#232625}
+.ch-sub{position:absolute;left:84px;top:150px;font-family:var(--mono);font-size:17px;letter-spacing:.24em;color:#565C58}
+.ch-sub2{position:absolute;right:84px;top:150px;font-family:var(--mono);font-size:17px;letter-spacing:.24em;color:#565C58}
+.ch-src{position:absolute;left:84px;bottom:34px;font-family:var(--mono);font-size:15px;
+  letter-spacing:.14em;color:#3C413E;line-height:1.85}
+.ticks{position:absolute;right:84px;bottom:38px;display:flex;gap:7px}
+.ticks i{display:block;width:32px;height:3px;background:#232625}
+.ticks i.on{background:var(--red)}
+#ruler{position:absolute;left:84px;top:1046px;width:912px;height:56px;z-index:20}
+#ruler .base{position:absolute;left:0;top:26px;width:912px;height:1px;background:#1D201F}
+#ruler .tk{position:absolute;top:26px;width:1px;height:6px;background:#222524}
+#ruler .tk.b{height:13px;background:#2C302E}
+#ruler .ph{position:absolute;top:12px;width:1px;height:28px;background:var(--red);box-shadow:0 0 12px rgba(222,59,39,.5)}
+#ruler .rd{position:absolute;right:0;top:0;font-family:var(--mono);font-size:13px;letter-spacing:.2em;color:#4A504C}
+.tb{position:absolute;left:84px;top:1216px;width:912px;opacity:0;visibility:hidden}
+.tb.on{opacity:1;visibility:visible}
+.kick{font-family:var(--mono);font-size:21px;letter-spacing:.3em;color:var(--red);margin-bottom:26px;display:flex;align-items:center;gap:16px}
+.kick b{display:block;width:52px;height:1px;background:var(--red);opacity:.75}
+.kick em{font-style:normal;margin-left:auto;color:#4E5450;letter-spacing:.2em}
+.hl>div{overflow:hidden;display:block}
+.hl span{display:block;transform:translateY(105%)}
+.num{font-family:var(--mono);font-size:128px;line-height:1.04;font-weight:500;letter-spacing:-.025em;color:var(--paper)}
+.ser{font-family:var(--serif);font-size:100px;line-height:1.26;font-weight:700;letter-spacing:.015em;color:var(--paper)}
+.ser-lg{font-family:var(--serif);font-size:130px;line-height:1.14;font-weight:700;letter-spacing:.03em;color:var(--paper)}
+.ser-sm{font-family:var(--serif);font-size:72px;line-height:1.3;font-weight:400;letter-spacing:.08em;color:#B4AE9E}
+.sub{font-family:var(--sans);font-size:27px;line-height:1.6;color:#868D88;letter-spacing:.06em;opacity:0;margin-top:12px}
+.card{position:absolute;border-radius:7px;border:1px solid #464C48;
+  background:linear-gradient(156deg,#313732,#1C211E 46%,#111514);
+  box-shadow:0 26px 50px -18px #000,inset 0 1px 0 rgba(226,219,203,.10)}
+.card .f{position:absolute;inset:9px;border:1px solid #4A504C;border-radius:4px}
+.card .s{position:absolute;left:50%;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;background:#DE3B27;transform:rotate(45deg)}
+#ui{position:fixed;left:0;right:0;bottom:0;height:54px;display:flex;align-items:center;gap:18px;
+  padding:0 24px;font-family:var(--mono);font-size:12px;color:#7A807C;background:linear-gradient(transparent,#000a);z-index:100}
+#ui.hide{display:none}
+#ui button{background:none;border:1px solid #333;color:#B6BCB8;padding:5px 12px;font-family:var(--mono);font-size:12px;cursor:pointer}
+#bar{flex:1;height:3px;background:#1B1D1C;position:relative;cursor:pointer}
+#bar i{position:absolute;left:0;top:0;bottom:0;background:var(--red);width:0}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <div id="scenes"></div>
+  <div id="ruler"><div class="base"></div><div class="ph"></div><div class="rd">T+00:00</div></div>
+  <canvas id="grain" width="360" height="640"></canvas>
+  <div id="scan"></div><div id="vig"></div>
+  <div class="ch-l">FILE NO.00 — RESTRICTED</div>
+  <div class="ch-r" id="cTC">00:00:00:00</div>
+  <div class="ch-rule"></div>
+  <div class="ch-sub">系列名 / 副题</div>
+  <div class="ch-sub2">20XX.XX / DRAFT</div>
+  <div class="ch-src">SOURCE · 数据来源<br>SECONDARY LINE</div>
+  <div class="ticks" id="ticks"></div>
+  <div id="flash"></div>
+</div></div>
+<div id="ui"><button id="pp">播放</button><span id="tt">00:00</span><div id="bar"><i></i></div></div>
+
+<script>
+const clamp01=v=>v<0?0:v>1?1:v;
+const seg=(u,a,b)=>clamp01((u-a)/(b-a));
+const lerp=(a,b,p)=>a+(b-a)*p;
+const eO=p=>1-Math.pow(1-p,3);
+const eQ=p=>1-Math.pow(1-p,5);
+const eIO=p=>p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+const pad=(n,l=2)=>String(n).padStart(l,'0');
+const $=s=>document.querySelector(s);
+const NS='http://www.w3.org/2000/svg';
+let now=0,T=180;
+
+/* ====== 1. 时间线（拿到真实配音只改 VODUR） ====== */
+const VODUR=[35.0,34.8,34.1,40.6,39.6];
+const LEAD=0.8,GAP=0.5,TAIL=4.0;
+const ACTSPEC=[{vo:0,frac:1},{vo:1,frac:1},{vo:2,frac:1},{vo:3,frac:1},{vo:4,frac:0.66},{vo:4,frac:0.34}];
+const ACTS=[
+ {act:'Ⅰ',tag:'现 象',meta:'来源 / 日期',hl:[{t:'标题一行',c:'ser'},{t:'标题二行',c:'ser'}],sub:'副标题'},
+ {act:'Ⅱ',tag:'判 定',meta:'人物 / 年份',hl:[{t:'标题一行',c:'ser'},{t:'标题二行',c:'ser'}],sub:'副标题'},
+ {act:'Ⅲ',tag:'赌 注',meta:'人物 / 年份',hl:[{t:'标题一行',c:'ser'},{t:'标题二行',c:'ser'}],sub:'副标题'},
+ {act:'Ⅳ',tag:'理 智',meta:'人物 / 年份',hl:[{t:'标题一行',c:'ser'},{t:'标题二行',c:'ser'}],sub:'副标题'},
+ {act:'Ⅴ',tag:'追 问',meta:'一句话',hl:[{t:'标题一行',c:'ser'},{t:'标题二行',c:'ser'}],sub:'副标题'},
+ {act:'Ⅵ',tag:'尺 度',meta:'一句话',hl:[{t:'标题一行',c:'ser-lg'},{t:'标题二行',c:'ser-sm'}],sub:'副标题'}
+];
+const ACTSHOTS=[2,2,2,2,2,2];                       /* 每幕镜数 */
+const WEIGHTS=[[0.45,0.55],[0.45,0.55],[0.45,0.55],[0.45,0.55],[0.45,0.55],[0.45,0.55]];
+const KITNAMES=[['trio','stat'],['bio','condamne'],['bet','chip'],['bio2','sapere'],['flip','back'],['list','stamp']];
+const CAPS=[
+ [['FIG.01 / 开场','22:47'],['FIG.02 / 数据','64%']],
+ [['FIG.03 / 人物','1905—1980'],['FIG.04 / 判定','CONDAMNÉ']],
+ [['FIG.05 / 赌桌','必须下注'],['FIG.06 / 筹码','责任']],
+ [['FIG.07 / 人物','1724—1804'],['FIG.08 / 拉丁文','1784']],
+ [['FIG.09 / 牌面','分手'],['FIG.10 / 背面','真实动机']],
+ [['FIG.11 / 清单','3 项'],['FIG.12 / 印章','END']]
+];
+
+ACTSHOTS.forEach((n,i)=>{ if(WEIGHTS[i].length!==n) throw new Error('WEIGHTS['+i+'] 长度应为 '+n); });
+const acts=[];let cur=LEAD;
+ACTSPEC.forEach(s=>{const d=VODUR[s.vo]*s.frac;acts.push({a:cur,b:cur+d,dur:d});cur+=d+GAP;});
+T=cur-GAP+TAIL;
+const shots=[];
+acts.forEach((a,i)=>{
+  const w=WEIGHTS[i],sum=w.reduce((p,c)=>p+c,0);let x=a.a;
+  for(let j=0;j<ACTSHOTS[i];j++){
+    const d=a.dur*w[j]/sum;
+    shots.push({a:x,b:x+d,act:i,kit:KITNAMES[i][j],cap:CAPS[i][j]});
+    x+=d;
+  }
+});
+shots[shots.length-1].b=T;
+
+/* ====== 2. 工具 ====== */
+const scEl=$('#scenes'),flash=$('#flash'),grainC=$('#grain'),gctx=grainC.getContext('2d');
+function mk(t,c,h){const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;}
+function T_(p,st,txt){const e=mk('div','',txt);e.style.cssText=st;p.appendChild(e);return e;}
+function SV(p,vb,st){const s=document.createElementNS(NS,'svg');s.setAttribute('viewBox',vb);
+  if(st)s.style.cssText=st;p.appendChild(s);return s;}
+function E(tag,a){const e=document.createElementNS(NS,tag);for(const k in a)e.setAttribute(k,a[k]);return e;}
+function newShot(root){const s=mk('div','stage');if(root)root.appendChild(s);return s;}   /* 必须挂到 root！ */
+function cardBack(x,y,w,h,rot){
+  const c=mk('div','card');
+  c.style.cssText=`left:${x}px;top:${y}px;width:${w}px;height:${h}px;transform:rotate(${rot}deg)`;
+  c.innerHTML='<div class="f"></div><div class="s"></div>';return c;
+}
+function bioCard(s,cfg){
+  const c=mk('div','');
+  c.style.cssText='position:absolute;left:0;top:96px;width:912px;height:420px;border:1px solid #3E4441;opacity:0;padding:40px 44px';
+  c.innerHTML=`<div style="display:flex;font-family:var(--mono);font-size:14px;letter-spacing:.24em;color:#6E7671">
+      <span>${cfg.fig}</span><span style="margin-left:auto">${cfg.src}</span></div>
+    <div class="nm" style="font-family:var(--serif);font-size:76px;font-weight:700;color:#EDE7DA;margin-top:42px;overflow:hidden">
+      <span style="display:block;transform:translateY(110%)">${cfg.cn}</span></div>
+    <div style="display:flex;align-items:baseline;margin-top:12px">
+      <span style="font-family:var(--mono);font-size:18px;letter-spacing:.2em;color:#6C736E">${cfg.en}</span>
+      <span style="margin-left:auto;font-family:var(--mono);font-size:26px;color:#B4AE9E">${cfg.life}</span></div>
+    <div class="ln" style="height:1px;background:#343A37;margin:30px 0 24px;width:0"></div>
+    <div style="font-family:var(--serif);font-size:34px;color:#D2CCBC">${cfg.work}</div>
+    <div class="cc" style="font-family:var(--mono);font-size:17px;letter-spacing:.24em;color:#DE3B27;margin-top:20px;opacity:0">${cfg.concept}</div>`;
+  s.appendChild(c);
+  const nm=c.querySelector('.nm span'),ln=c.querySelector('.ln'),cc=c.querySelector('.cc');
+  return u=>{
+    c.style.opacity=eO(seg(u,0.05,0.45));
+    nm.style.transform=`translateY(${(1-eO(seg(u,0.2,0.7)))*110}%)`;
+    ln.style.width=(824*eO(seg(u,0.45,0.85)))+'px';
+    cc.style.opacity=seg(u,0.85,1.2);
+  };
+}
+
+/* ====== 3. 镜头（K.xxx，全部返回 upd(u)） ====== */
+const K={};
+
+K.trio=function(root){
+  const s=newShot(root);
+  T_(s,'position:absolute;inset:-40px;background:radial-gradient(56% 44% at 34% 22%,rgba(226,219,203,.09),transparent 68%),#0A0B0B','');
+  const cs=[cardBack(120,120,210,310,-13),cardBack(350,80,210,310,4),cardBack(580,150,210,310,17)];
+  cs.forEach(c=>s.appendChild(c));
+  const tc=T_(s,'position:absolute;left:0;top:520px;font-family:var(--mono);font-size:64px;color:#EDE7DA;opacity:0','22:47');
+  return u=>{
+    cs.forEach((c,i)=>{const k=eO(seg(u,0.15+i*0.22,0.75+i*0.22));
+      c.style.opacity=k;c.style.transform=`rotate(${[-13,4,17][i]}deg) translateY(${(1-k)*30}px)`;});
+    tc.style.opacity=eO(seg(u,0.9,1.5));
+  };
+};
+
+K.stat=function(root){
+  const s=newShot(root);
+  const svg=SV(s,'0 0 912 700','position:absolute;inset:0');
+  const CX=456,CY=300,R=210,L=2*Math.PI*R;
+  svg.appendChild(E('circle',{cx:CX,cy:CY,r:R,fill:'none',stroke:'#1F2321','stroke-width':26}));
+  const arc=E('circle',{cx:CX,cy:CY,r:R,fill:'none',stroke:'#DE3B27','stroke-width':26,
+    transform:`rotate(-90 ${CX} ${CY})`});
+  arc.setAttribute('stroke-dasharray',`0 ${L}`);svg.appendChild(arc);
+  const num=T_(s,'position:absolute;left:0;top:220px;width:912px;text-align:center;font-family:var(--mono);font-size:150px;font-weight:500;color:#EDE7DA','0%');
+  return u=>{
+    const k=eQ(seg(u,0.3,2.4));
+    arc.setAttribute('stroke-dasharray',`${L*0.64*k} ${L}`);
+    num.textContent=Math.round(64*k)+'%';
+  };
+};
+
+K.bio=function(root){
+  const s=newShot(root);
+  const up=bioCard(s,{fig:'FIG.03',src:'SOURCE / 1943',cn:'让-保罗·萨特',en:'JEAN-PAUL SARTRE',
+    life:'1905 — 1980',work:'《存在与虚无》',concept:'人 被 判 定 为 自 由'});
+  return u=>up(u);
+};
+
+K.bio2=function(root){
+  const s=newShot(root);
+  const up=bioCard(s,{fig:'FIG.07',src:'SOURCE / 1784',cn:'伊曼努尔·康德',en:'IMMANUEL KANT',
+    life:'1724 — 1804',work:'《什么是启蒙？》',concept:'SAPERE AUDE'});
+  return u=>up(u);
+};
+
+K.condamne=function(root){
+  const s=newShot(root);
+  const w=T_(s,'position:absolute;left:0;top:180px;font-family:var(--serif);font-size:150px;font-weight:700;letter-spacing:.1em;color:#EDE7DA;opacity:0','判 定');
+  const svg=SV(s,'0 0 912 700','position:absolute;inset:0');
+  const box=E('rect',{x:14,y:170,width:0,height:210,fill:'none',stroke:'#DE3B27','stroke-width':4});
+  svg.appendChild(box);
+  const en=T_(s,'position:absolute;left:0;top:420px;font-family:var(--mono);font-size:18px;letter-spacing:.3em;color:#DE3B27;opacity:0','CONDAMNÉ À ÊTRE LIBRE');
+  return u=>{
+    w.style.opacity=eO(seg(u,0.3,1.0));
+    box.setAttribute('width',380*eO(seg(u,1.3,2.0)));
+    en.style.opacity=seg(u,2.0,2.7);
+  };
+};
+
+K.bet=function(root){
+  const s=newShot(root);
+  const mkC=(x,txt,red)=>{
+    const g=mk('div','');
+    g.style.cssText=`position:absolute;left:${x}px;top:200px;width:200px;height:200px;border-radius:50%;
+      border:2px solid ${red?'#DE3B27':'#5A615C'};background:#111513;display:grid;place-items:center;opacity:0`;
+    T_(g,`font-family:var(--serif);font-size:52px;color:${red?'#DE3B27':'#D6D0C0'}`,txt);
+    s.appendChild(g);return g;
+  };
+  const ch1=mkC(120,'信',true),ch2=mkC(600,'不信',false);
+  return u=>{
+    [ch1,ch2].forEach((c,i)=>{const p=eO(seg(u,0.2+i*0.3,1.0+i*0.3));
+      c.style.opacity=p;c.style.transform=`translateY(${(1-p)*-40}px)`;});
+  };
+};
+
+K.chip=function(root){
+  const s=newShot(root);
+  const g=mk('div','');
+  g.style.cssText='position:absolute;left:356px;top:180px;width:200px;height:200px;border-radius:50%;'+
+    'border:2px solid #DE3B27;background:#1A1110;display:grid;place-items:center;opacity:0;transform:scale(.86)';
+  T_(g,'font-family:var(--serif);font-size:64px;color:#DE3B27','责任');
+  s.appendChild(g);
+  return u=>{const k=eO(seg(u,0.3,1.2));g.style.opacity=k;g.style.transform=`scale(${lerp(.86,1,k)})`;};
+};
+
+K.sapere=function(root){
+  const s=newShot(root);
+  const w1=T_(s,'position:absolute;left:0;top:150px;font-family:var(--mono);font-size:96px;font-weight:500;color:#EDE7DA;white-space:pre','');
+  const w2=T_(s,'position:absolute;left:0;top:290px;font-family:var(--serif);font-size:64px;font-weight:700;color:#DE3B27;opacity:0','敢于运用你自己的理智。');
+  const S='Sapere aude.';
+  return u=>{
+    const n=Math.floor(S.length*seg(u,0.2,1.8));
+    w1.textContent=S.slice(0,n)+(n<S.length&&n>0?'_':'');
+    w2.style.opacity=seg(u,1.9,2.6);
+  };
+};
+
+K.flip=function(root){
+  const s=newShot(root);
+  const holder=mk('div','');
+  holder.style.cssText='position:absolute;left:346px;top:110px;width:220px;height:320px;perspective:1200px';
+  const inner=mk('div','');
+  inner.style.cssText='position:absolute;inset:0;transform-style:preserve-3d';
+  const back=cardBack(0,0,220,320,0);
+  back.style.cssText+=';left:0;top:0;backface-visibility:hidden';
+  const face=mk('div','');
+  face.style.cssText='position:absolute;inset:0;background:linear-gradient(165deg,#F5F0E3,#DFD6C1);'+
+    'border-radius:7px;border:1px solid #CFC6B2;backface-visibility:hidden;transform:rotateY(180deg);'+
+    'display:grid;place-items:center;font-family:var(--serif);font-size:52px;color:#1A1815;writing-mode:vertical-rl';
+  face.textContent='分手';
+  inner.appendChild(back);inner.appendChild(face);holder.appendChild(inner);s.appendChild(holder);
+  return u=>{inner.style.transform=`rotateY(${eIO(seg(u,0.3,1.9))*180}deg)`;};
+};
+
+K.back=function(root){
+  const s=newShot(root);
+  const holder=mk('div','');
+  holder.style.cssText='position:absolute;left:326px;top:110px;width:260px;height:370px;perspective:1200px';
+  const inner=mk('div','');
+  inner.style.cssText='position:absolute;inset:0;transform-style:preserve-3d';
+  const cb=cardBack(0,0,260,370,0);
+  cb.style.cssText+=';left:0;top:0;backface-visibility:hidden';
+  const face=mk('div','');
+  face.style.cssText='position:absolute;inset:0;background:linear-gradient(165deg,#F5F0E3,#DFD6C1);'+
+    'border-radius:7px;border:1px solid #CFC6B2;backface-visibility:hidden;transform:rotateY(180deg);'+
+    'display:grid;place-items:center;font-family:var(--serif);font-size:40px;line-height:1.7;color:#1A1815;text-align:center;padding:22px';
+  face.textContent='我早就\n想分了';
+  inner.appendChild(cb);inner.appendChild(face);holder.appendChild(inner);s.appendChild(holder);
+  return u=>{inner.style.transform=`rotateY(${eIO(seg(u,0.3,2.0))*180}deg)`;};
+};
+
+K.list=function(root){
+  const s=newShot(root);
+  const rows=['答 案','说 辞','仪 式 感'].map((t,i)=>{
+    const y=170+i*110;
+    const a=T_(s,`position:absolute;left:0;top:${y}px;font-family:var(--serif);font-size:52px;color:#D6D0C0;opacity:0`,t);
+    const sv=SV(s,'0 0 40 40',`position:absolute;left:640px;top:${y+10}px;width:40px;height:40px`);
+    const tp=E('path',{d:'M6 21 L15 30 L34 8',fill:'none',stroke:'#DE3B27','stroke-width':4,'stroke-linecap':'round',
+      'stroke-dasharray':'40 40','stroke-dashoffset':40});
+    sv.appendChild(tp);
+    return {a,tp};
+  });
+  return u=>{
+    rows.forEach((o,i)=>{
+      o.a.style.opacity=eO(seg(u,0.3+i*0.45,0.8+i*0.45));
+      o.tp.setAttribute('stroke-dashoffset',String(40*(1-eO(seg(u,0.8+i*0.45,1.3+i*0.45)))));
+    });
+  };
+};
+
+K.stamp=function(root){
+  const s=newShot(root);
+  const st=mk('div','','无法外包');
+  st.style.cssText='position:absolute;left:196px;top:280px;width:520px;height:170px;border:5px solid #DE3B27;'+
+    'display:grid;place-items:center;font-family:var(--serif);font-size:92px;font-weight:700;color:#DE3B27;'+
+    'letter-spacing:.1em;transform:rotate(-6deg) scale(2.4);opacity:0;background:rgba(222,59,39,.05)';
+  s.appendChild(st);
+  return u=>{
+    const k=eO(seg(u,0.9,1.35));
+    st.style.opacity=k;st.style.transform=`rotate(-6deg) scale(${lerp(2.4,1,k)})`;
+  };
+};
+
+/* ====== 4. 组装 ====== */
+const built=shots.map(sh=>{
+  const root=mk('div','shot');
+  const upd=K[sh.kit](root);
+  const cap=mk('div','cap');
+  cap.innerHTML='<b>'+sh.cap[0]+'</b><i>'+sh.cap[1]+'</i>';
+  root.appendChild(cap);scEl.appendChild(root);
+  return {root,upd,cap,sh};
+});
+const titles=ACTS.map(a=>{
+  const tb=mk('div','tb');
+  tb.appendChild(mk('div','kick','<b></b>ACT '+a.act+' · '+a.tag+'<em>'+a.meta+'</em>'));
+  const hl=mk('div','hl');
+  a.hl.forEach(h=>{const w=mk('div');const sp=mk('span',h.c,h.t);w.appendChild(sp);hl.appendChild(w);});
+  tb.appendChild(hl);tb.appendChild(mk('div','sub',a.sub));
+  scEl.appendChild(tb);return tb;
+});
+const tickEls=ACTS.map(()=>{const i=document.createElement('i');$('#ticks').appendChild(i);return i;});
+
+function fmt(t){return pad(Math.floor(t/60))+':'+pad(Math.floor(t)%60)+':'+pad(Math.floor((t%1)*30));}
+let cs=-1,ca=-1;
+function render(){
+  const t=now;
+  $('#cTC').textContent=fmt(t);
+  let ai=acts.findIndex(a=>t>=a.a&&t<a.b);if(ai<0)ai=t<LEAD?0:acts.length-1;
+  if(ai!==ca){titles.forEach((e,i)=>e.classList.toggle('on',i===ai));
+    tickEls.forEach((e,i)=>{e.className=i<=ai?'on':'';});ca=ai;}
+  const ua=t-acts[ai].a;
+  titles[ai].querySelector('.kick').style.opacity=eO(seg(ua,0.15,0.6));
+  titles[ai].querySelectorAll('.hl>div>span').forEach((sp,j)=>{
+    const p=eO(seg(ua,0.25+j*0.14,0.85+j*0.14));
+    sp.style.transform='translateY('+((1-p)*105)+'%)';
+  });
+  titles[ai].querySelector('.sub').style.opacity=seg(ua,0.8,1.4);
+  let si=shots.findIndex(s=>t>=s.a&&t<s.b);if(si<0)si=shots.length-1;
+  if(si!==cs){built.forEach((b,i)=>b.root.classList.toggle('on',i===si));cs=si;}
+  const b=built[si],u=t-b.sh.a;
+  b.upd(u);
+  b.root.style.opacity=Math.min(1,u/0.10);
+  b.cap.style.opacity=seg(u,0.25,0.55);
+  let fl=0;
+  for(const s of shots){const d=Math.abs(t-s.a);if(d<0.10)fl=Math.max(fl,(1-d/0.10)*0.07);}
+  if(t<LEAD)fl=Math.max(fl,1-t/LEAD);
+  flash.style.opacity=fl;
+  $('#ruler .ph').style.left=(t/T*912)+'px';
+  $('#ruler .rd').textContent='T+'+pad(Math.floor(t/60))+':'+pad(Math.floor(t)%60);
+  const img=gctx.createImageData(360,640),d=img.data;
+  let rn=Math.floor(t*12)*9301+49297;
+  for(let p=0;p<d.length;p+=4){rn=(rn*9301+49297)%233280;
+    const v=(rn/233280)*255;d[p]=d[p+1]=d[p+2]=v;d[p+3]=255;}
+  gctx.putImageData(img,0,0);
+  $('#tt').textContent=fmt(t).slice(0,5);
+  $('#bar i').style.width=(t/T*100)+'%';
+}
+
+/* ====== 5. 时钟 + 渲染模式 ====== */
+let playing=false,base=0,t0=0,raf=0;
+function tickFn(){
+  if(!playing)return;
+  now=base+(performance.now()-t0)/1000;
+  if(now>=T){now=T;playing=false;$('#pp').textContent='播放';cancelAnimationFrame(raf);render();return;}
+  render();raf=requestAnimationFrame(tickFn);
+}
+function play(){
+  if(playing){playing=false;$('#pp').textContent='播放';cancelAnimationFrame(raf);return;}
+  base=now;t0=performance.now();playing=true;$('#pp').textContent='暂停';
+  cancelAnimationFrame(raf);tickFn();
+}
+$('#pp').onclick=play;
+$('#bar').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();
+  now=clamp01((e.clientX-r.left)/r.width)*T;base=now;t0=performance.now();render();};
+addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();play();}});
+function fit(){const sc=Math.min(innerWidth/1080,(innerHeight-54)/1920);
+  $('#stage').style.transform='scale('+sc+')';}
+addEventListener('resize',fit);fit();
+
+const qs=new URLSearchParams(location.search);
+if(qs.get('render')){
+  $('#ui').classList.add('hide');
+  $('#stage').style.transform='none';
+  document.body.style.background='#08090A';
+  $('#wrap').style.display='block';
+  window.__seek=t=>{now=Math.max(0,Math.min(T-0.01,t));render();return now;};
+  window.__T=T;window.__ready=true;
+  now=parseFloat(qs.get('t')||0);render();
+}else{render();}
+</script>
+</body>
+</html>

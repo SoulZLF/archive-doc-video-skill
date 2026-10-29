@@ -1,0 +1,9 @@
+frames/
+*.mp3
+*.m4a
+*.mp4
+*.jpg
+*.png
+node_modules/
+__pycache__/
+.DS_Store
